@@ -75,125 +75,12 @@ def resample_data(df, timeframe):
     return resampled_df
 
 # --- Indicators & Strategies ---
-
-def calculate_supertrend(df, period=10, multiplier=3):
-    """Calculates Supertrend indicator."""
-    df = df.copy()
-    
-    # ATR Calculation
-    df['tr0'] = abs(df['high'] - df['low'])
-    df['tr1'] = abs(df['high'] - df['close'].shift(1))
-    df['tr2'] = abs(df['low'] - df['close'].shift(1))
-    df['tr'] = df[['tr0', 'tr1', 'tr2']].max(axis=1)
-    df['atr'] = df['tr'].rolling(period).mean()
-    
-    # Basic Bands
-    hl2 = (df['high'] + df['low']) / 2
-    df['basic_upper'] = hl2 + (multiplier * df['atr'])
-    df['basic_lower'] = hl2 - (multiplier * df['atr'])
-    
-    # Final Bands
-    df['final_upper'] = df['basic_upper']
-    df['final_lower'] = df['basic_lower']
-    df['supertrend'] = 0.0
-    
-    # Iterative calculation
-    for i in range(1, len(df)):
-        # Final Upper Band
-        if df['basic_upper'].iloc[i] < df['final_upper'].iloc[i-1] or \
-           df['close'].iloc[i-1] > df['final_upper'].iloc[i-1]:
-            df.loc[df.index[i], 'final_upper'] = df['basic_upper'].iloc[i]
-        else:
-            df.loc[df.index[i], 'final_upper'] = df['final_upper'].iloc[i-1]
-            
-        # Final Lower Band
-        if df['basic_lower'].iloc[i] > df['final_lower'].iloc[i-1] or \
-           df['close'].iloc[i-1] < df['final_lower'].iloc[i-1]:
-            df.loc[df.index[i], 'final_lower'] = df['basic_lower'].iloc[i]
-        else:
-            df.loc[df.index[i], 'final_lower'] = df['final_lower'].iloc[i-1]
-            
-        # Supertrend
-        if df['supertrend'].iloc[i-1] == df['final_upper'].iloc[i-1]:
-            if df['close'].iloc[i] <= df['final_upper'].iloc[i]:
-                df.loc[df.index[i], 'supertrend'] = df['final_upper'].iloc[i]
-            else:
-                df.loc[df.index[i], 'supertrend'] = df['final_lower'].iloc[i]
-        elif df['supertrend'].iloc[i-1] == df['final_lower'].iloc[i-1]:
-            if df['close'].iloc[i] >= df['final_lower'].iloc[i]:
-                df.loc[df.index[i], 'supertrend'] = df['final_lower'].iloc[i]
-            else:
-                df.loc[df.index[i], 'supertrend'] = df['final_upper'].iloc[i]
-        else:
-            if df['close'].iloc[i] <= df['final_upper'].iloc[i]:
-                df.loc[df.index[i], 'supertrend'] = df['final_upper'].iloc[i]
-            else:
-                df.loc[df.index[i], 'supertrend'] = df['final_lower'].iloc[i]
-                
-    # Signal
-    df['signal'] = np.where(df['close'] > df['supertrend'], 1, -1)
-    return df
-
-def calculate_golden_crossover(df, short_window=50, long_window=200):
-    """Calculates Golden Crossover (SMA Crossover)."""
-    df = df.copy()
-    df['short_mavg'] = df['close'].rolling(window=short_window).mean()
-    df['long_mavg'] = df['close'].rolling(window=long_window).mean()
-    
-    df['signal'] = 0
-    df.loc[df['short_mavg'] > df['long_mavg'], 'signal'] = 1
-    df.loc[df['short_mavg'] < df['long_mavg'], 'signal'] = -1
-    return df
-
-def calculate_rsi_strategy(df, period=14, overbought=70, oversold=30):
-    """Calculates RSI Strategy."""
-    df = df.copy()
-    delta = df['close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-    
-    rs = gain / loss
-    df['rsi'] = 100 - (100 / (1 + rs))
-    
-    # Signal: Mean Reversion
-    df['signal'] = 0
-    df.loc[df['rsi'] < oversold, 'signal'] = 1
-    df.loc[df['rsi'] > overbought, 'signal'] = -1
-    
-    # Forward fill signal
-    df['signal'] = df['signal'].replace(0, np.nan).ffill().fillna(0)
-    
-    return df
-
-def calculate_macd_strategy(df, fast=12, slow=26, signal_period=9):
-    """Calculates MACD Strategy."""
-    df = df.copy()
-    exp1 = df['close'].ewm(span=fast, adjust=False).mean()
-    exp2 = df['close'].ewm(span=slow, adjust=False).mean()
-    df['macd'] = exp1 - exp2
-    df['signal_line'] = df['macd'].ewm(span=signal_period, adjust=False).mean()
-    
-    df['signal'] = 0
-    df.loc[df['macd'] > df['signal_line'], 'signal'] = 1
-    df.loc[df['macd'] < df['signal_line'], 'signal'] = -1
-    return df
-
-def calculate_bollinger_bands_strategy(df, period=20, std_dev=2):
-    """Calculates Bollinger Bands Strategy."""
-    df = df.copy()
-    df['sma'] = df['close'].rolling(window=period).mean()
-    df['std'] = df['close'].rolling(window=period).std()
-    df['upper_band'] = df['sma'] + (df['std'] * std_dev)
-    df['lower_band'] = df['sma'] - (df['std'] * std_dev)
-    
-    # Mean Reversion Strategy
-    df['signal'] = 0
-    df.loc[df['close'] < df['lower_band'], 'signal'] = 1
-    df.loc[df['close'] > df['upper_band'], 'signal'] = -1
-    
-    # Forward fill
-    df['signal'] = df['signal'].replace(0, np.nan).ffill().fillna(0)
-    return df
+from strategies.supertrend import calculate_supertrend
+from strategies.golden_crossover import calculate_golden_crossover
+from strategies.rsi_strategy import calculate_rsi_strategy
+from strategies.macd_strategy import calculate_macd_strategy
+from strategies.bollinger_bands import calculate_bollinger_bands_strategy
+from strategies.quantzee_supertrend import calculate_quantzee_supertrend
 
 def run_backtest(df):
     """
@@ -306,7 +193,8 @@ def calculate_metrics(df):
         "Start Date": str(df.index[0].date()),
         "End Date": str(df.index[-1].date()),
         "Gross Profit": round(gross_profit, 4),
-        "Gross Loss": round(gross_loss, 4)
+        "Gross Loss": round(gross_loss, 4),
+        "Risk Reward Ratio": round(avg_win / avg_loss, 2) if avg_loss != 0 else 0
     }
     
     return metrics

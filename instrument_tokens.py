@@ -8,6 +8,7 @@ The fetched data can be saved to ``instrument_tokens.json`` for later reuse.
 
 import json
 import logging
+from datetime import date, datetime
 from typing import List, Dict
 
 from kite_auth import get_kite
@@ -20,6 +21,13 @@ EXCHANGE = None  # Set to "NSE", "BSE", etc., or leave ``None`` for all.
 INSTRUMENT_TYPE = None  # Set to "EQ", "FUT", "OPT", etc., or ``None``.
 
 TOKEN_FILE = "instrument_tokens.json"
+
+
+class DateEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (date, datetime)):
+            return obj.isoformat()
+        return super().default(obj)
 
 
 def fetch_instruments() -> List[Dict]:
@@ -52,7 +60,7 @@ def save_instruments(instruments: List[Dict], filepath: str = TOKEN_FILE) -> Non
     """
     try:
         with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(instruments, f, indent=2, ensure_ascii=False)
+            json.dump(instruments, f, indent=2, ensure_ascii=False, cls=DateEncoder)
         logging.info("Instrument list saved to %s", filepath)
     except OSError as exc:
         logging.error("Unable to write instrument file: %s", exc)

@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import json
+import plotly.express as px
 from datetime import datetime
 
 # Local imports
@@ -48,7 +49,7 @@ if not st.session_state["authenticated"]:
     if st.button("Login"):
         if authenticate(username, password):
             st.session_state["authenticated"] = True
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Invalid credentials")
     st.stop()
@@ -174,13 +175,20 @@ elif page == "Backtest":
         st.sidebar.subheader("Strategy")
         strategy = st.sidebar.selectbox(
             "Select Strategy",
-            ["None", "Supertrend", "Golden Crossover", "RSI Strategy", "MACD Strategy", "Bollinger Bands"],
+            ["None", "Supertrend", "Golden Crossover", "RSI Strategy", "MACD Strategy", "Bollinger Bands", "QuantZee Supertrend"],
         )
         # Strategy parameters
         params = {}
         if strategy == "Supertrend":
             params["period"] = st.sidebar.number_input("ATR Period", min_value=1, value=10)
             params["multiplier"] = st.sidebar.number_input("Multiplier", min_value=0.1, value=3.0, step=0.1)
+        elif strategy == "QuantZee Supertrend":
+            st.sidebar.markdown("### LTF Settings")
+            params["ltf_period"] = st.sidebar.number_input("LTF ATR Period", min_value=1, value=10)
+            params["ltf_multiplier"] = st.sidebar.number_input("LTF Multiplier", min_value=0.1, value=3.0, step=0.1)
+            st.sidebar.markdown("### HTF Settings")
+            params["htf_period"] = st.sidebar.number_input("HTF ATR Period", min_value=1, value=10)
+            params["htf_multiplier"] = st.sidebar.number_input("HTF Multiplier", min_value=0.1, value=3.0, step=0.1)
         elif strategy == "Golden Crossover":
             params["short_window"] = st.sidebar.number_input("Short Window", min_value=1, value=50)
             params["long_window"] = st.sidebar.number_input("Long Window", min_value=1, value=200)
@@ -234,6 +242,20 @@ elif page == "Backtest":
                                 df_resampled = engine.calculate_bollinger_bands_strategy(
                                     df_resampled, params["period"], params["std_dev"]
                                 )
+                            elif strategy == "QuantZee Supertrend":
+                                # Pass the timeframe string (e.g., "3min") to the strategy
+                                # The timeframe variable holds the selected timeframe from sidebar
+                                # We need to ensure it's passed correctly.
+                                # If "Original" is selected, we might need to infer or default.
+                                # Let's assume user selects explicit timeframe for this strategy.
+                                ltf = timeframe if timeframe != "Original" else "3min" # Default to 3min if Original
+                                df_resampled = engine.calculate_quantzee_supertrend(
+                                    df_resampled, ltf, 
+                                    ltf_period=params["ltf_period"], 
+                                    ltf_multiplier=params["ltf_multiplier"],
+                                    htf_period=params["htf_period"],
+                                    htf_multiplier=params["htf_multiplier"]
+                                )
                         # Run backtest & metrics
                         df_bt = engine.run_backtest(df_resampled)
                         metrics = engine.calculate_metrics(df_bt)
@@ -243,5 +265,9 @@ elif page == "Backtest":
                             keys = list(metrics.keys())
                             for i, key in enumerate(keys):
                                 cols[i % 4].metric(key, metrics[key])
+                            
+                            st.subheader("Cumulative Profit")
+                            fig = px.line(df_bt, y='cumulative_returns', title='Cumulative Profit')
+                            st.plotly_chart(fig)
                         else:
                             st.info("No metrics available.")
