@@ -19,8 +19,8 @@ from kiteconnect import KiteConnect
 # ----------------------------------------------------------------------
 # Configuration – replace with your actual credentials
 # ----------------------------------------------------------------------
-API_KEY = "szty4dl8o9usrzxd"
-API_SECRET = "50lqmgm87167jkd007mrm6zjw9auniyq"
+API_KEY = "2awsfu6ovtd42qkm"
+API_SECRET = "n0oitraslv0vk49ganqrsl5vg04wfr0s"
 USER_ID = "PR2888"
 PASSWORD = "A@a12345"
 TOTP_KEY = "7MWR7W4XZ2KZ2YBXAPAUBDBEV5LBWR32"
